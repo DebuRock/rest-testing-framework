@@ -1,0 +1,65 @@
+name: "Assets"
+description: "Test cases for Assets feature"
+apikey: "ABoKYTo3GH"
+serverurl: "http://asset-tracking.asset-tracking-qa.10.106.12.221.xip.io/at"
+authurl: "/api/v1/auth/login"
+user:
+  id: "sysadmin@thingsboard.org"
+  password: "sysadmin"
+requestJsons:
+  createAssetJson: "{'name': 'MyAsset', 'type': 'oil', 'description': 'MyAsset', 'model': 'R718AB'}"
+
+testSetup:
+  - name: "Create Tenant"
+    request:
+      url: "/api/v1/tenants"
+      method: "POST"
+      params:
+      headers:
+        Content-Type: "application/json"
+      baseJson: "create_tenant.json"
+      jsonOverrides:
+    response:
+      tenantId: "id"
+
+  - name: "Create User"
+    request:
+      url: "/api/v1/tenants/user"
+      method: "POST"
+      params:
+      headers:
+        Content-Type: "application/json"
+      baseJson: "create_user.json"
+      jsonOverrides:
+        tenantId: "{{tenantId}}"
+    response:
+      userName: "attenant@iot.com"
+      password: "attenantuser"
+
+testCases:
+  - name: "Create Asset"
+    request:
+      url: "/api/v1/assets"
+      method: "POST"
+      params:
+      headers:
+        Content-Type: "application/json"
+      baseJson: "create_asset.json"
+      jsonOverrides:
+        name: "world"
+        description: "Updated"
+    response:
+      status: 201
+      jsonValidations:
+        name: "world"
+
+testCleanup:
+  - name: "Delete Tenant"
+    request:
+      url: "/api/v1/"
+      method: "DELETE"
+      params:
+      headers:
+        Content-Type: "application/json"
+      baseJson:
+

@@ -1,0 +1,14 @@
+{
+  "name": "MyAsset",
+  "type": "oil",
+  "description": "MyAsset",
+  "model": "R718AB",
+  "location": {
+    "locationStr": "string",
+    "accuracy": 100,
+    "altitude": 100,
+    "latitude": 34,
+    "longitude": 50,
+    "source": "admin"
+  }
+}
