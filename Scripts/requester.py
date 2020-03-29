@@ -34,29 +34,18 @@ class User:
 
 # Create a feature class
 class Feature:
-    def __init__(self, feature_name, server_url, auth_url, api_key, user, test_cases):
+    def __init__(self, feature_name, server_url, auth_url, api_key, user, test_cases, setup, cleanup):
         self.feature = feature_name
         self.api_key = api_key
         self.server_url = server_url
         self.auth_url = auth_url
         self.user = user
         self.tests = test_cases
-
-
-# Create a Test class
-class Test:
-    def __init__(self, name, auth_url, setup, cleanup, test_cases, request, expected_response):
-        self.name = name
-        self.auth_url = auth_url
-        self.request = request
-        self.expected_response = expected_response
-        self.actual_response = None
         self.setup = setup
         self.cleanup = cleanup
-        self.test_cases = test_cases
         self.access_token = None
         self.test_vars_dict = {}
-        self.test_result = None
+        self.test_cases = []
 
     def set_test_var_dict(self, step_name, request_output):
         """Create a variable dictionary to create dynamic response variable"""
@@ -97,15 +86,21 @@ class Test:
         result = json.loads(json.dumps(new_expr)) if len(re.findall(r"{.+}", new_expr)) > 0 else new_expr
         return result
 
-    def test_setup(self, server_url, user):
+    def test_setup(self):
         """Setup a before a test run"""
         # Extract data from the request object
         for step in self.setup:
             # if step is login then change current user
-            access_token = self.access_token if self.access_token is not None else user.get_access_token(self.auth_url)
+            access_token = self.access_token if self.access_token is not None else \
+                self.user.get_access_token(self.server_url+self.auth_url)
             if step['request']['url'] is not None:
                 val = self.evaluate_overridden_variable(step['request']['url'])
                 step['request']['url'] = val
+
+            if step['request']['headers'] is not None:
+                for k, v in step['request']['headers'].items():
+                    val = self.evaluate_overridden_variable(v)
+                    step['request']['headers'][k] = val
 
             if step['request']['params'] is not None:
                 for k, v in step['request']['params'].items():
@@ -117,10 +112,95 @@ class Test:
                     val = self.evaluate_overridden_variable(v)
                     step['request']['jsonOverrides'][k] = val
 
-            response = do_request(server_url, access_token, step['request'], skip_ssl=skip_ssl_verify) if step['request']['jsonOverrides'] is None else  \
-                do_request(server_url, access_token, step['request'], True, skip_ssl=skip_ssl_verify)
+            response = do_request(self.server_url, access_token, step['request'], skip_ssl=skip_ssl_verify) if \
+                step['request']['jsonOverrides'] is None else  \
+                do_request(self.server_url, access_token, step['request'], True, skip_ssl=skip_ssl_verify)
             self.set_test_var_dict(step['name'], response)
             log.info(response.text)
+
+    def run(self):
+        """Run all specific test"""
+        self.test_setup()
+        for test in self.tests:
+            name = test['name']
+            request = test['request']
+            expected_response = test['response']
+            authentication_url = self.server_url + self.auth_url
+            test_case = Test(name, authentication_url, self.access_token, self.test_vars_dict, request, expected_response)
+            test_case.actual_response = test_case.test_run(self.server_url, self.user)
+            test_case.test_result = test_case.test_validation()
+            self.test_cases.append(test_case)
+        self.test_cleanup()
+
+    def test_cleanup(self):
+        """Setup a before a test run"""
+        # Extract data from the request object
+        for step in self.cleanup:
+            # Add access token to the request header
+            access_token = self.user.get_access_token(self.server_url + self.auth_url)
+            if step['request']['url'] is not None:
+                val = self.evaluate_overridden_variable(step['request']['url'])
+                step['request']['url'] = val
+
+            if step['request']['headers'] is not None:
+                for k, v in step['request']['headers'].items():
+                    val = self.evaluate_overridden_variable(v)
+                    step['request']['headers'][k] = val
+
+            if step['request']['params'] is not None:
+                for k, v in step['request']['params'].items():
+                    val = self.evaluate_overridden_variable(v)
+                    step['request']['params'][k] = val
+
+            if step['request']['jsonOverrides'] is not None:
+                for k, v in step['request']['jsonOverrides'].items():
+                    val = self.evaluate_overridden_variable(v)
+                    step['request']['jsonOverrides'][k] = val
+
+            response = do_request(self.server_url, access_token, step['request'], skip_ssl=skip_ssl_verify) if \
+                step['request']['jsonOverrides'] is None else \
+                do_request(self.server_url, access_token, step['request'], True, skip_ssl=skip_ssl_verify)
+            log.info(response.text)
+
+
+# Create a Test class
+class Test:
+    def __init__(self, name, auth_url, access_token, test_vars_dict, request, expected_response):
+        self.name = name
+        self.auth_url = auth_url
+        self.request = request
+        self.expected_response = expected_response
+        self.actual_response = None
+        self.access_token = access_token
+        self.test_vars_dict = test_vars_dict
+        self.test_result = None
+
+    def expression_extractor(self, expression):
+        new_expr = ""
+        template_vars = re.findall(r"{{.+}}", expression)
+        if len(template_vars) == 0:
+            new_expr = expression
+        for template_var in template_vars:
+            target_var = template_var.strip('{{').strip('}}')
+            list_of_vars = re.findall(r"\w+", target_var)
+            if isinstance(self.test_vars_dict[list_of_vars[0]], str):
+                t = Template(template_var)
+                template_var_value = {target_var: self.test_vars_dict[target_var]}
+                result = t.render(template_var_value)
+            else:
+                temp_target = self.test_vars_dict
+                while not isinstance(temp_target, str):
+                    for item in list_of_vars:
+                        item = int(item) if item.isnumeric() else item
+                        temp_target = temp_target[item]
+                result = temp_target
+            new_expr = expression.replace(template_var, result)
+        return new_expr
+
+    def evaluate_overridden_variable(self, template_var):
+        new_expr = self.expression_extractor(template_var)
+        result = json.loads(json.dumps(new_expr)) if len(re.findall(r"{.+}", new_expr)) > 0 else new_expr
+        return result
 
     def test_run(self, server_url, user):
         access_token = self.access_token if self.access_token is not None else user.get_access_token(self.auth_url)
@@ -132,6 +212,11 @@ class Test:
             for k, v in self.request['params'].items():
                 val = self.evaluate_overridden_variable(v)
                 self.request['params'][k] = val
+
+        if self.request['headers'] is not None:
+            for k, v in self.request['headers'].items():
+                val = self.evaluate_overridden_variable(v)
+                self.request['headers'][k] = val
 
         if self.request['jsonOverrides'] is not None:
             for k, v in self.request['jsonOverrides'].items():
@@ -158,28 +243,6 @@ class Test:
             log.exception(error)
             return "Failed"
 
-    def run(self, server_url, user):
-        """Run a specific test"""
-        self.test_setup(server_url, user)
-        # Run Test Cases
-        self.actual_response = self.test_run(server_url, user)
-        self.test_result = self.test_validation()
-        self.test_cleanup(server_url, user)
-
-    def test_cleanup(self, server_url, user):
-        """Setup a before a test run"""
-        # Extract data from the request object
-        for step in self.cleanup:
-            # Add access token to the request header
-            access_token = user.get_access_token(self.auth_url)
-            if step['request']['url'] is not None:
-                val = self.evaluate_overridden_variable(step['request']['url'])
-                step['request']['url'] = val
-            response = do_request(server_url, access_token, step['request'], skip_ssl=skip_ssl_verify) if \
-                step['request']['jsonOverrides'] is None else \
-                do_request(server_url, access_token, step['request'], True, skip_ssl=skip_ssl_verify)
-            log.info(response.text)
-
 
 # Parse the YAML config file
 def config_parser(config):
@@ -195,14 +258,7 @@ def config_parser(config):
         tests = data['testCases']
         setup = data['testSetup']
         cleanup = data['testCleanup']
-        for test in tests:
-            name = test['name']
-            request = test['request']
-            expected_response = test['response']
-            authentication_url = server_url + auth_url
-            test_case = Test(name, authentication_url, setup, cleanup, tests, request, expected_response)
-            test_cases.append(test_case)
-        feature_obj = Feature(feature_name, server_url, auth_url, api_key, user_obj, test_cases)
+        feature_obj = Feature(feature_name, server_url, auth_url, api_key, user_obj, tests, setup, cleanup)
     return feature_obj
 
 
@@ -300,5 +356,4 @@ config_file = os.path.join(config_folder, "assets.yaml")
 skip_ssl_verify = True
 
 feature = config_parser(config_file)
-for test in feature.tests:
-    test.run(feature.server_url, feature.user)
+feature.run()

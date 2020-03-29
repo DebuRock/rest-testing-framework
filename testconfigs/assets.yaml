@@ -82,6 +82,7 @@ testCases:
       params:
       headers:
         Content-Type: "application/json"
+        x-access-token: "{{accessToken}}"
       baseJson: "create_asset.json"
       jsonOverrides:
         name: "world"
