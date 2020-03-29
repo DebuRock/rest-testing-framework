@@ -1,5 +1,5 @@
 {
-    "name": "attenant",
+    "name": "atresttenant",
     "description": "attenant",
     "country": "US",
     "city": "CA",
@@ -8,5 +8,5 @@
     "address": "MyAddress",
     "address2": "MyAddress2",
     "phone": "9898989898",
-    "email": "attenant@iot.com"
+    "email": "atresttenant@iot.com"
 }

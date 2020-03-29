@@ -36,6 +36,44 @@ testSetup:
       userName: "attenant@iot.com"
       password: "attenantuser"
 
+  - name: "login"
+    request:
+      url: "/api/v1/auth/login"
+      method: "POST"
+      params:
+      headers:
+        Content-Type: "application/json"
+      baseJson: "login_user.json"
+      jsonOverrides:
+    response:
+      accessToken: "accessToken"
+
+  - name: "Create Customer"
+    request:
+      url: "/api/v1/tenants/customer"
+      method: "POST"
+      params:
+      headers:
+        Content-Type: "application/json"
+      baseJson: "create_customer.json"
+      jsonOverrides:
+    response:
+      customerId: "id"
+
+  - name: "Create Asset Type"
+    request:
+      url: "/api/v1/assettypes"
+      method: "POST"
+      params:
+      headers:
+        Content-Type: "application/json"
+      baseJson: "create_asset_type.json"
+      jsonOverrides:
+    response:
+      assetTypeId: "id"
+      assetTypeName: "name"
+      formElements: "formElements"
+
 testCases:
   - name: "Create Asset"
     request:
@@ -47,7 +85,9 @@ testCases:
       baseJson: "create_asset.json"
       jsonOverrides:
         name: "world"
+        type: "{{assetTypeId}}"
         description: "Updated"
+        customAttributes.formfieldId: "{{formElements[2].id}}"
     response:
       status: 201
       jsonValidations:
@@ -56,10 +96,13 @@ testCases:
 testCleanup:
   - name: "Delete Tenant"
     request:
-      url: "/api/v1/"
+      url: "/api/v1/tenants/{{tenantId}}"
       method: "DELETE"
       params:
       headers:
         Content-Type: "application/json"
       baseJson:
+      jsonOverrides:
+    response:
+      status: 200
 

@@ -1,0 +1,28 @@
+{
+    "name": "SetupAssetBuilding13",
+    "description": "SetupAssetBuilding13",
+    "formElements": [
+        {
+            "fieldName": "Floor",
+            "formField": "TextField",
+            "fieldType": "Text",
+            "isRequired": "false"
+        },
+        {
+            "fieldName": "Lifts",
+            "formField": "TextField",
+            "fieldType": "Text",
+            "isRequired": "false"
+        },
+        {
+            "fieldName": "Phone",
+            "fieldType": "Number",
+            "isRequired": "true"
+        },
+        {
+            "fieldName": "Temperature",
+            "fieldType": "Number",
+            "isRequired": "false"
+        }
+    ]
+}

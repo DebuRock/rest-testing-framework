@@ -1,0 +1,11 @@
+{
+  "address": "street",
+  "city": "ca",
+  "country": "US",
+  "description": "TenantCustomer",
+  "email": "tenantcustomer@iot.com",
+  "name": "TenantCustomer",
+  "phone": "8765447678",
+  "state": "ca",
+  "zip": "90001"
+}

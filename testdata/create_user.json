@@ -1,9 +1,9 @@
 {
-  "description": "attenantuser",
-  "email": "attenant@iot.com",
-  "firstName": "attenantuser",
+  "description": "atresttenantuser",
+  "email": "atresttenantuser@iot.com",
+  "firstName": "atresttenantuser",
   "lastName": "backend",
-  "name": "attenantuser",
-  "password": "attenantuser",
+  "name": "atresttenantuser",
+  "password": "attenant",
   "tenantId": "hdjsfhjskkdjskdjskhfskhkk"
 }
