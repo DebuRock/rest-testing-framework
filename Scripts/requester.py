@@ -5,6 +5,7 @@ import logging
 import json
 import re
 from jinja2 import Template
+from tabulate import tabulate
 
 
 log = logging.getLogger(__name__)
@@ -86,6 +87,14 @@ class Feature:
         result = json.loads(json.dumps(new_expr)) if len(re.findall(r"{.+}", new_expr)) > 0 else new_expr
         return result
 
+    def make_test_report(self):
+        # Create a list of list with test name ans the status
+        results_table = []
+        report_header = ['Test Name', 'Status']
+        for test_case in self.test_cases:
+            results_table.append([test_case.name, test_case.test_result])
+        print(tabulate(results_table, report_header, tablefmt="pretty"))
+
     def test_setup(self):
         """Setup a before a test run"""
         # Extract data from the request object
@@ -120,17 +129,23 @@ class Feature:
 
     def run(self):
         """Run all specific test"""
-        self.test_setup()
-        for test in self.tests:
-            name = test['name']
-            request = test['request']
-            expected_response = test['response']
-            authentication_url = self.server_url + self.auth_url
-            test_case = Test(name, authentication_url, self.access_token, self.test_vars_dict, request, expected_response)
-            test_case.actual_response = test_case.test_run(self.server_url, self.user)
-            test_case.test_result = test_case.test_validation()
-            self.test_cases.append(test_case)
-        self.test_cleanup()
+        try:
+            self.test_setup()
+            for test in self.tests:
+                name = test['name']
+                request = test['request']
+                expected_response = test['response']
+                response_variables = test['responseVariables'] if 'responseVariables' in test else None
+                authentication_url = self.server_url + self.auth_url
+                test_case = Test(name, authentication_url, self.access_token, self.test_vars_dict, request,
+                                 expected_response, response_variables)
+                test_case.actual_response = test_case.test_run(self.server_url, self.user)
+                test_case.test_result = test_case.test_validation()
+                self.test_cases.append(test_case)
+        except AssertionError as error:
+            log.exception(error)
+        finally:
+            self.test_cleanup()
 
     def test_cleanup(self):
         """Setup a before a test run"""
@@ -165,10 +180,11 @@ class Feature:
 
 # Create a Test class
 class Test:
-    def __init__(self, name, auth_url, access_token, test_vars_dict, request, expected_response):
+    def __init__(self, name, auth_url, access_token, test_vars_dict, request, expected_response, response_variables):
         self.name = name
         self.auth_url = auth_url
         self.request = request
+        self.response_variables = response_variables
         self.expected_response = expected_response
         self.actual_response = None
         self.access_token = access_token
@@ -226,6 +242,13 @@ class Test:
             self.request['jsonOverrides'] is None else  \
             do_request(server_url, access_token, self.request, True, skip_ssl=skip_ssl_verify)
 
+        # Check for Response Variables
+        if self.response_variables is not None:
+            response_obj = json.loads(response.text)
+            for key, val in self.response_variables.items():
+                if val in response_obj.keys():
+                    self.test_vars_dict[key] = response_obj[val]
+
         return response
 
     def test_validation(self):
@@ -235,9 +258,10 @@ class Test:
             log.info("Actual Status Code:{}".format(self.actual_response.status_code))
             assert self.expected_response['status'] == self.actual_response.status_code, "Status code doesn't match"
             json_validations = self.expected_response['jsonValidations']
-            for key, val in json_validations.items():
-                actual_val = read_response_body(json.loads(self.actual_response.text), key)
-                assert val == actual_val, "Json Validation Failed"
+            if json_validations is not None:
+                for key, val in json_validations.items():
+                    actual_val = read_response_body(json.loads(self.actual_response.text), key)
+                    assert val == actual_val, "Json Validation Failed"
             return "Passed"
         except AssertionError as error:
             log.exception(error)
@@ -357,3 +381,4 @@ skip_ssl_verify = True
 
 feature = config_parser(config_file)
 feature.run()
+feature.make_test_report()

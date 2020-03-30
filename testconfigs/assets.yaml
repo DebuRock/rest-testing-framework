@@ -89,10 +89,59 @@ testCases:
         type: "{{assetTypeId}}"
         description: "Updated"
         customAttributes.formfieldId: "{{formElements[2].id}}"
+    responseVariables:
+      assetId: "id"
     response:
       status: 201
       jsonValidations:
         name: "world"
+
+  - name: "Create Asset With Long Name"
+    request:
+      url: "/api/v1/assets"
+      method: "POST"
+      params:
+      headers:
+        Content-Type: "application/json"
+        x-access-token: "{{accessToken}}"
+      baseJson: "create_asset.json"
+      jsonOverrides:
+        name: "yyyyyyyyyyyyyyyyyyyyyyyy74787538588994949999999999999999yyhdhhhhhhhhhhhhhhhhhhhhhh%%%%7777777"
+        type: "{{assetTypeId}}"
+        customAttributes.formfieldId: "{{formElements[2].id}}"
+    response:
+      status: 400
+      jsonValidations:
+        message: "name Value for Asset Name is not legal"
+
+  - name: "Get All Asset"
+    request:
+      url: "/api/v1/assets"
+      method: "GET"
+      params:
+      headers:
+        Content-Type: "application/json"
+        x-access-token: "{{accessToken}}"
+      baseJson:
+      jsonOverrides:
+    response:
+      status: 200
+      jsonValidations:
+
+  - name: "Get Asset By ID"
+    request:
+      url: "/api/v1/assets/{{assetId}}"
+      method: "GET"
+      params:
+      headers:
+        Content-Type: "application/json"
+        x-access-token: "{{accessToken}}"
+      baseJson:
+      jsonOverrides:
+    response:
+      status: 200
+      jsonValidations:
+        name: "MyAsset"
 
 testCleanup:
   - name: "Delete Tenant"
